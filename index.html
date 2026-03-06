@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,60 +11,74 @@
 <style>
 
 body{
-font-family: Arial, sans-serif;
-background:#f1f5f9;
+font-family:Arial;
+background:#f5f5f5;
 margin:0;
-padding:0;
-}
-
-.container{
-max-width:500px;
-margin:auto;
-padding:15px;
 }
 
 .header{
-font-size:20px;
-font-weight:bold;
-margin-bottom:10px;
+background:#0F3D2E;
+color:white;
+padding:20px;
+text-align:center;
 }
 
 .card{
 background:white;
+margin:15px;
+padding:20px;
 border-radius:12px;
-padding:15px;
-margin-bottom:15px;
-box-shadow:0 2px 8px rgba(0,0,0,0.08);
+box-shadow:0 3px 10px rgba(0,0,0,0.1);
 }
 
 .saldo{
 font-size:28px;
 font-weight:bold;
-color:#0f766e;
+color:#0F3D2E;
 }
 
-.small{
-color:#64748b;
-font-size:13px;
+.progress{
+background:#eee;
+height:10px;
+border-radius:10px;
+margin-top:10px;
+}
+
+.progress-bar{
+background:#C8A45C;
+height:10px;
+border-radius:10px;
+width:0%;
 }
 
 .transaksi{
-border-bottom:1px solid #eee;
+display:flex;
+justify-content:space-between;
 padding:10px 0;
+border-bottom:1px solid #eee;
 }
 
-.nominal{
-font-weight:bold;
-color:#16a34a;
+.btn{
+background:#0F3D2E;
+color:white;
+padding:12px;
+border-radius:8px;
+text-align:center;
+margin-top:15px;
 }
 
 .loading{
-text-align:center;
-padding:40px;
+height:20px;
+background:#ddd;
+margin:10px 0;
+border-radius:6px;
+animation:pulse 1.5s infinite;
 }
 
-canvas{
-margin-top:10px;
+@keyframes pulse{
+0%{opacity:0.5}
+50%{opacity:1}
+100%{opacity:0.5}
 }
 
 </style>
@@ -72,160 +86,126 @@ margin-top:10px;
 
 <body>
 
-<div class="container">
-
 <div class="header">
-Tabungan Umroh
-</div>
-
-<div id="loading" class="loading">
-Loading data...
-</div>
-
-<div id="content" style="display:none">
-
-<div class="card">
-<div id="nama"></div>
-<div class="small">No VA : <span id="va"></span></div>
-
-<div class="saldo" id="saldo"></div>
+<h2>Tabungan Umroh</h2>
+<div id="nama">Loading...</div>
 </div>
 
 <div class="card">
-<div class="small">Grafik Tabungan</div>
-<canvas id="grafik"></canvas>
+
+<div>Saldo Tabungan</div>
+<div class="saldo" id="saldo">...</div>
+
+<div>Progress Pelunasan</div>
+
+<div class="progress">
+<div class="progress-bar" id="progress"></div>
+</div>
+
+<div id="persen"></div>
+
 </div>
 
 <div class="card">
-<div class="small">Riwayat Transaksi</div>
-<div id="listTransaksi"></div>
+
+<canvas id="chart"></canvas>
+
 </div>
 
+<div class="card">
+
+<h3>Riwayat Transaksi</h3>
+
+<div id="transaksi">
+<div class="loading"></div>
+<div class="loading"></div>
+<div class="loading"></div>
+</div>
+
+<div class="btn" onclick="downloadPDF()">
+Download Buku Tabungan
 </div>
 
 </div>
 
 <script>
 
-const API_URL = "https://script.google.com/macros/s/AKfycbzk052mEIwZUHZLcjYcMmHqOPWcARXLS-XUE1hjUYhWP0_P61F6PKIn-HYG21fry0AD/exec";
+const url = new URLSearchParams(window.location.search)
 
-function getParam(name){
-const url = new URL(window.location.href);
-return url.searchParams.get(name);
-}
+const user = url.get("user_id")
+const va = url.get("no_va")
 
-const user_id = getParam("user_id");
-const no_va = getParam("no_va");
+const API = "https://script.google.com/macros/s/AKfycbzk052mEIwZUHZLcjYcMmHqOPWcARXLS-XUE1hjUYhWP0_P61F6PKIn-HYG21fry0AD/exec"
 
-async function loadData(){
+fetch(API+"?user_id="+user+"&no_va="+va)
 
-try{
+.then(res=>res.json())
 
-const url = API_URL + "?user_id="+user_id+"&no_va="+no_va;
+.then(data=>{
 
-const res = await fetch(url);
-const data = await res.json();
+document.getElementById("nama").innerHTML=data.nama
 
-if(data.status !== "success"){
-alert("Data tidak ditemukan");
-return;
-}
+document.getElementById("saldo").innerHTML=
+"Rp "+data.total.toLocaleString()
 
-render(data);
+let persen = (data.total/data.target)*100
 
-}catch(e){
+document.getElementById("progress").style.width=
+persen+"%"
 
-alert("Error load data");
+document.getElementById("persen").innerHTML=
+Math.round(persen)+"% dari target"
 
-}
+let html=""
 
-}
+data.transaksi.forEach(t=>{
 
-function formatRupiah(n){
-
-return "Rp " + n.toLocaleString("id-ID");
-
-}
-
-function render(data){
-
-document.getElementById("loading").style.display="none";
-document.getElementById("content").style.display="block";
-
-document.getElementById("nama").innerText = data.nama_kepala;
-document.getElementById("va").innerText = data.no_va;
-document.getElementById("saldo").innerText = formatRupiah(data.total_tabungan);
-
-renderTransaksi(data.transaksi);
-renderGrafik(data.transaksi);
-
-}
-
-function renderTransaksi(list){
-
-const el = document.getElementById("listTransaksi");
-el.innerHTML="";
-
-list.slice().reverse().forEach(t=>{
-
-const div=document.createElement("div");
-
-div.className="transaksi";
-
-div.innerHTML=`
+html+=`
+<div class="transaksi">
 <div>${t.tanggal}</div>
-<div class="nominal">${formatRupiah(t.nominal)}</div>
-<div class="small">Saldo : ${formatRupiah(t.saldo)}</div>
-`;
+<div>Rp ${t.jumlah.toLocaleString()}</div>
+</div>
+`
 
-el.appendChild(div);
+})
 
-});
+document.getElementById("transaksi").innerHTML=html
 
-}
+buatChart(data.transaksi)
 
-function renderGrafik(list){
+})
 
-const labels=[];
-const saldo=[];
+function buatChart(data){
 
-list.forEach(t=>{
+let labels=[]
+let values=[]
 
-labels.push(t.tanggal);
-saldo.push(t.saldo);
+data.forEach(d=>{
+labels.push(d.tanggal)
+values.push(d.jumlah)
+})
 
-});
-
-new Chart(document.getElementById("grafik"),{
-
-type:"line",
-
+new Chart(document.getElementById("chart"),{
+type:'line',
 data:{
 labels:labels,
 datasets:[{
-label:"Saldo",
-data:saldo,
-fill:true,
-tension:0.3
+data:values,
+borderColor:"#0F3D2E",
+fill:false
 }]
-},
-
-options:{
-plugins:{legend:{display:false}},
-scales:{
-y:{beginAtZero:true}
 }
+})
 
 }
 
-});
+function downloadPDF(){
+
+alert("Download PDF segera tersedia")
 
 }
-
-loadData();
 
 </script>
 
 </body>
-
 </html>
