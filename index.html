@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Tabungan Umroh</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+font-family: Arial, sans-serif;
+background:#f1f5f9;
+margin:0;
+padding:0;
+}
+
+.container{
+max-width:500px;
+margin:auto;
+padding:15px;
+}
+
+.header{
+font-size:20px;
+font-weight:bold;
+margin-bottom:10px;
+}
+
+.card{
+background:white;
+border-radius:12px;
+padding:15px;
+margin-bottom:15px;
+box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+
+.saldo{
+font-size:28px;
+font-weight:bold;
+color:#0f766e;
+}
+
+.small{
+color:#64748b;
+font-size:13px;
+}
+
+.transaksi{
+border-bottom:1px solid #eee;
+padding:10px 0;
+}
+
+.nominal{
+font-weight:bold;
+color:#16a34a;
+}
+
+.loading{
+text-align:center;
+padding:40px;
+}
+
+canvas{
+margin-top:10px;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">
+Tabungan Umroh
+</div>
+
+<div id="loading" class="loading">
+Loading data...
+</div>
+
+<div id="content" style="display:none">
+
+<div class="card">
+<div id="nama"></div>
+<div class="small">No VA : <span id="va"></span></div>
+
+<div class="saldo" id="saldo"></div>
+</div>
+
+<div class="card">
+<div class="small">Grafik Tabungan</div>
+<canvas id="grafik"></canvas>
+</div>
+
+<div class="card">
+<div class="small">Riwayat Transaksi</div>
+<div id="listTransaksi"></div>
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+const API_URL = "PASTE_API_SCRIPT_KAMU";
+
+function getParam(name){
+const url = new URL(window.location.href);
+return url.searchParams.get(name);
+}
+
+const user_id = getParam("user_id");
+const no_va = getParam("no_va");
+
+async function loadData(){
+
+try{
+
+const url = API_URL + "?user_id="+user_id+"&no_va="+no_va;
+
+const res = await fetch(url);
+const data = await res.json();
+
+if(data.status !== "success"){
+alert("Data tidak ditemukan");
+return;
+}
+
+render(data);
+
+}catch(e){
+
+alert("Error load data");
+
+}
+
+}
+
+function formatRupiah(n){
+
+return "Rp " + n.toLocaleString("id-ID");
+
+}
+
+function render(data){
+
+document.getElementById("loading").style.display="none";
+document.getElementById("content").style.display="block";
+
+document.getElementById("nama").innerText = data.nama_kepala;
+document.getElementById("va").innerText = data.no_va;
+document.getElementById("saldo").innerText = formatRupiah(data.total_tabungan);
+
+renderTransaksi(data.transaksi);
+renderGrafik(data.transaksi);
+
+}
+
+function renderTransaksi(list){
+
+const el = document.getElementById("listTransaksi");
+el.innerHTML="";
+
+list.slice().reverse().forEach(t=>{
+
+const div=document.createElement("div");
+
+div.className="transaksi";
+
+div.innerHTML=`
+<div>${t.tanggal}</div>
+<div class="nominal">${formatRupiah(t.nominal)}</div>
+<div class="small">Saldo : ${formatRupiah(t.saldo)}</div>
+`;
+
+el.appendChild(div);
+
+});
+
+}
+
+function renderGrafik(list){
+
+const labels=[];
+const saldo=[];
+
+list.forEach(t=>{
+
+labels.push(t.tanggal);
+saldo.push(t.saldo);
+
+});
+
+new Chart(document.getElementById("grafik"),{
+
+type:"line",
+
+data:{
+labels:labels,
+datasets:[{
+label:"Saldo",
+data:saldo,
+fill:true,
+tension:0.3
+}]
+},
+
+options:{
+plugins:{legend:{display:false}},
+scales:{
+y:{beginAtZero:true}
+}
+
+}
+
+});
+
+}
+
+loadData();
+
+</script>
+
+</body>
+</html>
